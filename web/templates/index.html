@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Multi-Agent Digital Twin</h1>
+  <div class="chips">
+    <span class="chip" id="chip-time">t = 0.0 s</span>
+    <span class="chip" id="chip-mode">MODE -</span>
+    <span class="chip" id="chip-mission">MISSION -</span>
+    <span class="chip" id="chip-form">FORMATION -</span>
+    <span class="chip" id="chip-conn" data-state="down">connecting...</span>
+  </div>
+  <div class="sim-controls">
+    <button id="btn-pause" title="Pause / resume the simulation clock">Pause</button>
+    <label>Speed
+      <select id="sel-speed">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+      </select>
+    </label>
+    <label>Control
+      <select id="sel-control">
+        <option value="advanced" selected>advanced</option>
+        <option value="pidr">pidr</option>
+        <option value="zoh">zoh</option>
+      </select>
+    </label>
+    <label>Loss x
+      <input id="in-loss" type="number" min="0" max="10" step="0.5" value="1" style="width:4.2em">
+    </label>
+    <button id="btn-reset" title="Restart with the settings on the left">Reset</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ===================== LEFT: world + controls ===================== -->
+  <section class="left">
+    <div class="canvas-wrap">
+      <canvas id="world" aria-label="Simulation world"></canvas>
+      <div id="halt-banner" class="halt" hidden></div>
+    </div>
+    <div id="feedback" class="feedback" role="status"></div>
+
+    <div class="controls">
+      <div class="ctl-row">
+        <label>Target agent
+          <select id="sel-agent">
+            <option value="ALL" selected>ALL</option>
+            <option value="LEADER">LEADER</option>
+          </select>
+        </label>
+        <button data-cmd="follow">FOLLOW</button>
+        <button data-cmd="scatter">SCATTER</button>
+        <button data-cmd="regroup">REGROUP</button>
+        <button data-cmd="stop" class="danger">STOP</button>
+        <button data-cmd="resume">RESUME</button>
+        <label>Mode
+          <select id="sel-simmode">
+            <option>AUTO</option><option>MANUAL</option><option>COMMAND</option>
+          </select>
+        </label>
+        <label>Formation
+          <select id="sel-formation">
+            <option value="">-</option>
+            <option>WEDGE</option><option>LINE</option><option>COLUMN</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="ctl-row">
+        <form id="form-goto" class="inline">
+          <strong>GOTO</strong>
+          <input id="goto-x" type="number" step="any" placeholder="x" required>
+          <input id="goto-y" type="number" step="any" placeholder="y" required>
+          <button type="submit">Go</button>
+        </form>
+        <form id="form-cmd" class="inline grow">
+          <input id="cmd-text" type="text" placeholder="Command, e.g.  GOTO 10 5   |   AGENT 2 STOP   |   STATUS" autocomplete="off" spellcheck="false">
+          <button type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="ctl-row">
+        <span class="muted">Keyboard:</span>
+        <span class="keys" id="keys">
+          <kbd data-k="W">W</kbd><kbd data-k="A">A</kbd><kbd data-k="S">S</kbd><kbd data-k="D">D</kbd>
+          <span class="muted">drive</span>
+          <kbd>SPACE</kbd><span class="muted">stop</span>
+          <kbd>R</kbd><span class="muted">regroup</span>
+          <kbd>X</kbd><span class="muted">scatter</span>
+          <kbd>F</kbd><span class="muted">follow</span>
+        </span>
+        <span class="muted" id="manual-cmd"></span>
+        <label class="push"><input id="chk-loss" type="checkbox"> force 100% packet loss</label>
+      </div>
+      <div class="muted small">Click the map to send the selected agent there. Keys are ignored while typing in a box.</div>
+    </div>
+  </section>
+
+  <!-- ===================== RIGHT: panels ===================== -->
+  <aside class="right">
+    <section class="panel">
+      <h2>Agents</h2>
+      <table id="tbl-agents">
+        <thead><tr><th>ID</th><th>Mode</th><th>X</th><th>Y</th><th>V</th><th>Link</th><th>Task</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Network</h2>
+      <div id="net-stats" class="stats"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Task allocation</h2>
+      <form id="form-task" class="inline">
+        <input id="task-id" type="text" placeholder="id" maxlength="8" required style="width:3.6em">
+        <input id="task-x" type="number" step="any" placeholder="x" required>
+        <input id="task-y" type="number" step="any" placeholder="y" required>
+        <input id="task-prio" type="number" min="1" step="1" value="1" title="priority (1 = most urgent)" style="width:3.4em">
+        <button type="submit">Add task</button>
+        <button type="button" id="btn-allocate">ALLOCATE</button>
+        <button type="button" id="btn-cleartasks">Clear</button>
+      </form>
+      <ul id="task-list" class="plain"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Communication log <span class="muted small">(real network events)</span></h2>
+      <pre id="comm-log" class="log"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Command history</h2>
+      <pre id="cmd-history" class="log"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Events</h2>
+      <pre id="status-log" class="log small"></pre>
+    </section>
+  </aside>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
